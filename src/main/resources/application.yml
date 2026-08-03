@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: generic-data-ingestion-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ingestion
+    username: ingestion
+    password: ingestion
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: 8080
+
+ingestion:
+  http:
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+    max-retries: 3
+    retry-backoff-ms: 500
+    user-agent: generic-data-ingestion-service/0.1
+  sources:
+    # Demo A: API-key auth (query param), flat JSON array, no pagination
+    nasa-apod:
+      name: NASA Astronomy Picture of the Day
+      base-url: https://api.nasa.gov
+      path: /planetary/apod
+      method: GET
+      query:
+        count: "5"
+      auth:
+        type: api_key
+        query-param: api_key
+        value: ${NASA_API_KEY:DEMO_KEY}
+      pagination:
+        type: none
+      extraction:
+        records-path: "$"
+        id-fields:
+          - date
+      sink:
+        collection: nasa_apod
+        replace-existing: true
+
+    # Demo B: no auth, nested results, follow-next-URL pagination
+    rickandmorty-characters:
+      name: Rick and Morty Characters
+      base-url: https://rickandmortyapi.com
+      path: /api/character
+      method: GET
+      auth:
+        type: none
+      pagination:
+        type: next_url
+        next-path: "$.info.next"
+        max-pages: 2
+      extraction:
+        records-path: "$.results"
+        id-fields:
+          - id
+      sink:
+        collection: characters
+        replace-existing: true
+
+    # Extra: classic flat list, no auth — useful for quick local checks
+    jsonplaceholder-posts:
+      name: JSONPlaceholder Posts
+      base-url: https://jsonplaceholder.typicode.com
+      path: /posts
+      method: GET
+      auth:
+        type: none
+      pagination:
+        type: none
+      extraction:
+        records-path: "$"
+        id-fields:
+          - id
+      sink:
+        collection: posts
+        replace-existing: true
